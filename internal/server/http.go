@@ -35,11 +35,11 @@ type ProduceRequest struct {
 }
 
 type ProduceResponse struct {
-	Offet uint64 `json:"offset"`
+	Offset uint64 `json:"offset"`
 }
 
 type ConsumeRequest struct {
-	Offet uint64 `json:"offset"`
+	Offset uint64 `json:"offset"`
 }
 
 type ConsumeResponse struct {
@@ -47,18 +47,21 @@ type ConsumeResponse struct {
 }
 
 func (s *httpServer) handleProduce(w http.ResponseWriter, r *http.Request) {
+	// Unmarshal the request's JSON body into a struct
 	var req ProduceRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	// Run the endpoint's logic with request to obtain a result
 	off, err := s.Log.Append(req.Record)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	res := ProduceResponse{Offet: off}
+	res := ProduceResponse{Offset: off}
+	// Marshal and write the result to the response
 	err = json.NewEncoder(w).Encode(res)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -66,14 +69,18 @@ func (s *httpServer) handleProduce(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// The consume handler contains more error checking so we can provide an accurate status
+// code to the client if the server cannot handle the request
 func (s *httpServer) handleConsume(w http.ResponseWriter, r *http.Request) {
+	// Unmarshal the request's JSON body into a struct
 	var req ConsumeRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	record, err := s.Log.Read(req.Offet)
+	// Run that endpoint's logic with the request to obtain a results
+	record, err := s.Log.Read(req.Offset)
 	if err == ErrOffsetNotFound {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -83,6 +90,7 @@ func (s *httpServer) handleConsume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res := ConsumeResponse{Record: record}
+	// Marshal and write the result to the response
 	err = json.NewEncoder(w).Encode(res)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
